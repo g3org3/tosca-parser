@@ -25,6 +25,9 @@ Build & install the tool
 python setup.py install
 ```
 
+Helpful Links
+- [How to install pip](https://pip.pypa.io/en/stable/installing/)
+
 Ready to use! 🔥
 ```sh
 tosca-parser -h
