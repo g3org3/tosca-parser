@@ -43,7 +43,9 @@ class ParserShell(object):
 
     def get_parser(self, argv):
         parser = argparse.ArgumentParser(prog="tosca-parser")
-
+        parser.add_argument('-v', '--version', 
+                            action='store_true',
+                            help=_('show tool version.'))
         parser.add_argument('-c', '--template-file',
                             metavar='<filename>',
                             help=_('YAML template or CSAR file to parse. [🐯 ]'))
@@ -61,6 +63,9 @@ class ParserShell(object):
         parser = self.get_parser(argv)
         (args, extra_args) = parser.parse_known_args(argv)
         path = args.template_file
+        if (args.version):
+            print "v1.0.0"
+            exit(0)
         if (not args.template_file):
             if (os.path.isfile('./tosca-conf.yml')):
                 path = './tosca-conf.yml'
