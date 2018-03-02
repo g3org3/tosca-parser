@@ -44,24 +44,42 @@ class ParserShell(object):
     def get_parser(self, argv):
         parser = argparse.ArgumentParser(prog="tosca-parser")
 
-        parser.add_argument('--template-file',
+        parser.add_argument('-c', '--template-file',
                             metavar='<filename>',
-                            required=True,
-                            help=_('YAML template or CSAR file to parse.'))
+                            help=_('YAML template or CSAR file to parse. [🐯 ]'))
 
         return parser
+
+    def printIfHasProp(self, tosca, prop):
+        if hasattr(tosca, prop):
+            value = tosca[prop]
+            if value:
+                print("\n" + prop + ":")
+                print(value)
 
     def main(self, argv):
         parser = self.get_parser(argv)
         (args, extra_args) = parser.parse_known_args(argv)
         path = args.template_file
+        if (not args.template_file):
+            if (os.path.isfile('./tosca-conf.yml')):
+                path = './tosca-conf.yml'
+            else:
+                print "\n🤔 Could not found default config file: `./tosca-conf.yml`"
+                print ""
+                print "  to provide explicitly the path please use `-c`"
+                print "  e.g. tosca-parser -c ./my-template.yaml"
+                print ""
+                print "  to display default help use `--help`"
+                print ""
+                exit(1)
         if os.path.isfile(path):
             self.parse(path)
         elif toscaparser.utils.urlutils.UrlUtils.validate_url(path):
             self.parse(path, False)
         else:
             raise ValueError(_('"%(path)s" is not a valid file.')
-                             % {'path': path})
+                            % {'path': path})
 
     def parse(self, path, a_file=True):
         output = None
@@ -89,6 +107,8 @@ class ParserShell(object):
                 print("\nnodetemplates:")
                 for node in nodetemplates:
                     print("\t" + node.name)
+
+        # self.printIfHasProp(tosca, 'topology_template')
 
         # example of retrieving policy object
         '''if hasattr(tosca, 'policies'):
