@@ -2,7 +2,7 @@
 
 ## Usage
 
-Clone or fork the repo
+### Clone or fork the repo
 ```sh
 git clone https://github.com/g3org3/tosca-parser
 cd tosca-parser
@@ -15,6 +15,17 @@ git fetch upstream
 git rebase upstream/master
 ```
 
+### Lazy-way
+```sh
+# Only the First Time 
+make install
+
+# Every time to build and replace
+make
+```
+
+### Don't like lazy-way then...
+
 Install dependencies
 ```sh
 cd tosca-parser # to this repo
@@ -24,6 +35,7 @@ Build & install the tool
 ```sh
 python setup.py install
 ```
+
 
 Helpful Links
 - [How to install pip](https://pip.pypa.io/en/stable/installing/)
