@@ -8,3 +8,4 @@ PyYAML>=3.10 # MIT
 python-dateutil>=2.4.2 # BSD
 six>=1.10.0 # MIT
 requests>=2.14.2 # Apache-2.0
+numpy >= 1.14.2
