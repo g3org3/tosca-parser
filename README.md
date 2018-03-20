@@ -39,6 +39,7 @@ python setup.py install
 
 Helpful Links
 - [How to install pip](https://pip.pypa.io/en/stable/installing/)
+- [How to mange python versions?](https://github.com/pyenv/pyenv#homebrew-on-mac-os-x)
 
 Ready to use! 🔥
 ```sh
