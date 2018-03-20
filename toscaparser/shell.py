@@ -20,6 +20,7 @@ from toscaparser.common.exception import TOSCAException
 from toscaparser.utils.gettextutils import _
 import toscaparser.utils.urlutils
 import numpy as np
+from pyfancy import *
 
 """
 CLI entry point to show how TOSCA Parser can be used programmatically
@@ -48,14 +49,12 @@ class ParserShell(object):
         parser.add_argument('-v', '--version',
                             action='store_true',
                             help=_('show tool version.'))
+        parser.add_argument('-x', '--verbose', action='store_true', help=_('display matrix for each NF'))
         parser.add_argument('-c', '--template-file',
                             metavar='<filename>',
                             help=_('YAML template or CSAR file to parse.'))
 
         return parser
-    def logger(self, text):
-        if (True):
-            print(text)
     def main(self, argv):
         parser = self.get_parser(argv)
         (args, extra_args) = parser.parse_known_args(argv)
@@ -77,14 +76,14 @@ class ParserShell(object):
                 exit(1)
         if os.path.isfile(path):
             try:
-                self.parse(path)
+                self.parse(path, args)
             except TOSCAException as err:
                 print("\nCould not parse yaml field.")
                 print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
                 print(err)
                 print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         elif toscaparser.utils.urlutils.UrlUtils.validate_url(path):
-            self.parse(path, False)
+            self.parse(path, args, False)
         else:
             raise ValueError(_('"%(path)s" is not a valid file.')
                             % {'path': path})
@@ -127,8 +126,8 @@ class ParserShell(object):
     def printMatrix(self, cpsItems, matrix):
         print '\t--- ', ' '.join(map(lambda x: x[0], cpsItems))
         for x in range(0, len(cpsItems)):
-            print '\t', cpsItems[x][0], matrix[x]
-        
+            _matrix = matrix[x].tolist()[0] if hasattr(matrix[x], 'tolist') else matrix[x]
+            print '\t', cpsItems[x][0] + "  ", " | ".join(map(lambda y: str(y), _matrix))
 
     def func_chains(self, tosca, cpsItems):
         forwarding_paths = filter(lambda x: x.type == "tosca.nodes.nfv.FP", tosca.nodetemplates)
@@ -163,106 +162,76 @@ class ParserShell(object):
         return matrixList
 
     def hasLoop(self, matrix):
-        return len(filter(lambda x: x==1 , matrix.diagonal().tolist()[0])) > 0
+        return len(filter(lambda x: x is not 0, matrix.diagonal().tolist()[0])) > 0
 
-    def findLoop(self, cpsItems, obj):
+    def getPosOfNegative(self, cpsItems, matrix):
+        _matrix = matrix.tolist()
+        names = map(lambda x: x[0], cpsItems)
+        str = "  |> Found connexion problem"
+        for x in range(0, len(_matrix)):
+            for y in range(0, len(_matrix)):
+                if _matrix[x][y] == -1:
+                    str += "\n    • " + names[x] + " -x-> " + names[y]
+        return str
+
+    def nodesInvolved(self, cpsItems, matrix):
+        _matrix = matrix.tolist()
+        _names = []
+        names = map(lambda x: x[0], cpsItems)
+        for x in range(0, len(_matrix)):
+            if _matrix[x][x] is not 0:
+                _names.append(names[x])
+        return _names
+
+
+    def findLoop(self, connectivity, cpsItems, obj, args):
         matrix = obj['matrix']
         total_cps = obj['total_cps']
         name = obj['name']
         m = np.matrix(matrix)
         n = total_cps
-        print "\n\t~~~~~~~~~ "+ name +" ~~~~~~"
-        self.printMatrix(cpsItems, m)
+        if args.verbose:
+            pyfancy("\n   -->  ").underlined(name +":").output()
+            self.printMatrix(cpsItems, m)
+        difference = np.matrix(connectivity) - m
+        bugs = []
+        if difference.min() == -1:
+            bugs.append(self.getPosOfNegative(cpsItems, difference))
         for x in range(1, n + 1):
-            if (self.hasLoop(m**x)):
-                print "⚠️ Found loop (^"+str(x)+")"
-                self.printMatrix(cpsItems, m**x)
+            matrixToPower = m**x
+            if (self.hasLoop(matrixToPower)):
+                cpsInvolved = ", ".join(self.nodesInvolved(cpsItems, matrixToPower))
+                bugs.append("  |> Found loop!\n    • Step: " + str(x) + "\n    •  CPs: " + cpsInvolved)
+                if args.verbose:
+                    pyfancy().yellow("\n\tLoop detected in the matrix below: ^("+str(x)+")").output()
+                    self.printMatrix(cpsItems, matrixToPower)
                 break
+        if not args.verbose:
+            if len(bugs) is not 0:
+                pyfancy().underlined("⚠️  " + name).output()
+                for bug in bugs:
+                    print bug
+            else:
+                pyfancy("✅  " + name).output()
+        print ""
 
-    def parse(self, path, a_file=True):
+    def parse(self, path, args, a_file=True):
+        print("")
         output = None
         tosca = ToscaTemplate(path, None, a_file)
-        
-        print "\nconnectivity:\n"
+
         result = self.connectivityGraph(tosca)
         cpsItems = result['cpsItems']
-        self.printMatrix(cpsItems, result['connectivity'])
+        connectivity = result['connectivity']
+        if args.verbose:
+            print "\nconnectivity:\n"
+            self.printMatrix(cpsItems, connectivity)
         
-        print "\nrelations:"
+        if args.verbose:
+            print "\nNFS:"
         matrixList = self.func_chains(tosca, result['cpsItems'])
-        map(lambda x: self.findLoop(cpsItems, x), matrixList)
-            
-
-        # version = tosca.version
-        # self.logger("\nDetails\n")
-        # if tosca.version:
-        #     self.logger("      version: " + version)
-
-        # if hasattr(tosca, 'description'):
-        #     description = tosca.description
-        #     if description:
-        #         self.logger("  description: " + description)
-
-        # if hasattr(tosca, 'inputs'):
-        #     inputs = tosca.inputs
-        #     if inputs:
-        #         self.logger("\ninputs:")
-        #         for input in inputs:
-        #             self.logger("\t" + input.name)
-
-        # if hasattr(tosca, 'nodetemplates'):
-        #     nodetemplates = tosca.nodetemplates
-        #     if nodetemplates:
-        #         self.logger("nodetemplates:")
-        #         networks = []
-        #         vnfs = []
-        #         for node in nodetemplates:
-        #             self.logger("  - name: " + node.name)
-        #             self.logger("  - type: " + node.type)
-        #             if (node.type == "tosca.nodes.network.Network"):
-        #                 network = { "node": node }
-        #                 if node._properties:
-        #                     for prop in node._properties:
-        #                         if (prop.name == 'network_name'):
-        #                             network['network_name'] = prop.value
-        #                 networks.append(network)
-        #             elif (node.type == "tosca.groups.nfv.VNFFG"):
-        #                 vnf = {}
-        #                 if node._properties:
-        #                     for prop in node._properties:
-        #                         vnf[prop.name] = prop.value
-        #                 vnfs.append(vnf)
-        #             self.logger("  - capabilities: ")
-        #             for capa in node.get_capabilities_objects():
-        #                 self.logger("    * " + capa.name + ":")
-        #                 self.logger("      - props: " + str(capa._properties))
-        #         print("\nFound (", len(vnfs), ") VNFs!")
-        #         for vnf in vnfs:
-        #             print(" -", vnf)
-        #         print("\nFound (", len(networks), ") networks!")
-        #         for network in networks:
-        #             print(" -", network.get('network_name'))
-
-
-        # example of retrieving policy object
-        '''if hasattr(tosca, 'policies'):
-            policies = tosca.policies
-            if policies:
-                print("policies:")
-                for policy in policies:
-                    print("\t" + policy.name)
-                    if policy.triggers:
-                        print("\ttriggers:")
-                        for trigger in policy.triggers:
-                            print("\ttrigger name:" + trigger.name)'''
-
-        # if hasattr(tosca, 'outputs'):
-        #     outputs = tosca.outputs
-        #     if outputs:
-        #         print("\n\noutputs:")
-        #         for output in outputs:
-        #             print("\t" + output.name)
-        print("\n")
+        map(lambda x: self.findLoop(connectivity, cpsItems, x, args), matrixList)
+        print("")
 
 
 def main(args=None):
