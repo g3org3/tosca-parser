@@ -49,7 +49,12 @@ class ParserShell(object):
         parser.add_argument('-v', '--version',
                             action='store_true',
                             help=_('show tool version.'))
-        parser.add_argument('-x', '--verbose', action='store_true', help=_('display matrix for each NF'))
+        parser.add_argument('-x', '--verbose',
+                            action='store_true',
+                            help=_('display each FP matrix'))
+        parser.add_argument('-d', '--diff',
+                            action='store_true',
+                            help=_('display each matrix'))
         parser.add_argument('-c', '--template-file',
                             metavar='<filename>',
                             help=_('YAML template or CSAR file to parse.'))
@@ -190,11 +195,17 @@ class ParserShell(object):
         name = obj['name']
         m = np.matrix(matrix)
         n = total_cps
-        if args.verbose:
+        if args.verbose or args.diff:
             pyfancy("\n   -->  ").underlined(name +":").output()
             self.printMatrix(cpsItems, m)
         difference = np.matrix(connectivity) - m
         bugs = []
+        if args.diff:
+            if difference.min() == -1:
+                pyfancy().yellow("\n\tConnexion problem detected").output()
+            else:
+                pyfancy().dim("diff->").output()
+            self.printMatrix(cpsItems, difference)
         if difference.min() == -1:
             bugs.append(self.getPosOfNegative(cpsItems, difference))
         for x in range(1, n + 1):
@@ -206,7 +217,7 @@ class ParserShell(object):
                     pyfancy().yellow("\n\tLoop detected in the matrix below: ^("+str(x)+")").output()
                     self.printMatrix(cpsItems, matrixToPower)
                 break
-        if not args.verbose:
+        if not args.verbose and not args.diff:
             if len(bugs) is not 0:
                 pyfancy().underlined("⚠️  " + name).output()
                 for bug in bugs:
@@ -223,11 +234,11 @@ class ParserShell(object):
         result = self.connectivityGraph(tosca)
         cpsItems = result['cpsItems']
         connectivity = result['connectivity']
-        if args.verbose:
+        if args.verbose or args.diff:
             print "\nconnectivity:\n"
             self.printMatrix(cpsItems, connectivity)
-        
-        if args.verbose:
+
+        if args.verbose or args.diff:
             print "\nNFS:"
         matrixList = self.func_chains(tosca, result['cpsItems'])
         map(lambda x: self.findLoop(connectivity, cpsItems, x, args), matrixList)
