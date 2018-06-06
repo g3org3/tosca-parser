@@ -5,4 +5,4 @@ install:
 	pip install -r requirements.txt
 
 build:
-	python setyp.py build
+	python setup.py build
