@@ -212,7 +212,7 @@ class ParserShell(object):
             matrixToPower = m**x
             if (self.hasLoop(matrixToPower)):
                 cpsInvolved = ", ".join(self.nodesInvolved(cpsItems, matrixToPower))
-                bugs.append("  |> Found loop!\n    • Step: " + str(x) + "\n    •  CPs: " + cpsInvolved)
+                bugs.append("  |> Found loop!\n    • Length: " + str(x) + "\n    •    CPs: " + cpsInvolved)
                 if args.verbose:
                     pyfancy().yellow("\n\tLoop detected in the matrix below: ^("+str(x)+")").output()
                     self.printMatrix(cpsItems, matrixToPower)
@@ -224,12 +224,19 @@ class ParserShell(object):
                     print bug
             else:
                 pyfancy("✅  " + name).output()
-        print ""
+        # print ""
 
     def parse(self, path, args, a_file=True):
-        print("")
+        # print("")
         output = None
-        tosca = ToscaTemplate(path, None, a_file)
+        tosca = None
+        try:
+            tosca = ToscaTemplate(path, None, a_file)
+        except:
+            print("⚠️ tosca-parser: Could not parse the given file.")
+            if args.verbose:
+                print("Unexpected error: " + str(sys.exc_info()[1]) + "\n")
+            exit(1)
 
         result = self.connectivityGraph(tosca)
         cpsItems = result['cpsItems']
@@ -242,7 +249,7 @@ class ParserShell(object):
             print "\nNFS:"
         matrixList = self.func_chains(tosca, result['cpsItems'])
         map(lambda x: self.findLoop(connectivity, cpsItems, x, args), matrixList)
-        print("")
+        # print("")
 
 
 def main(args=None):
